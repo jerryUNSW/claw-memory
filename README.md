@@ -1,23 +1,28 @@
-# Efficient Hybrid Retrieval: Unified Index Fusion for Lexical and Semantic Search
+# Agent Memory Retrieval: Efficient Hybrid Search for AI Agent Systems
 
-## Research Problem
+## The Problem
 
-Modern retrieval systems need to combine two complementary signals:
+AI agents like OpenClaw maintain a **memory layer** — a growing store of past observations, decisions, tool results, and conversation history. Every time an agent needs context to answer a question or complete a task, it queries this memory store.
 
-- **Lexical search** (BM25/FTS) — fast, precise, good at exact term matching
-- **Semantic/dense search** (vector similarity) — understands meaning, handles synonymy and paraphrase
+This is not web search. It is **agent memory retrieval** — a fundamentally different problem:
 
-The standard approach — run both independently, then merge results — is wasteful. It performs double I/O, fetches far more candidates than needed, cannot terminate early, and pushes fusion logic into the application layer where the query planner cannot optimize it.
+| Property | Web / Document Search | Agent Memory Retrieval |
+|---|---|---|
+| Who wrote the content? | Third parties | The agent and user themselves |
+| Query source | User typing a search | Agent generating a context query mid-task |
+| Relevance | Topical similarity | Episodic relevance — "what did I decide / do / observe?" |
+| Corpus size | Millions of docs | Hundreds to low thousands of memory chunks |
+| Temporal signal | Usually ignored | Critical — recency and session context matter |
+| Update frequency | Mostly static | Continuously growing every session |
+| Latency budget | 100ms–1s acceptable | <50ms required — blocks agent response time |
 
-**The core research question:** Can moving hybrid fusion *into* the database engine's query planner — through interleaved index traversal and early termination — achieve the efficiency of cascaded filtering while preserving the recall of exhaustive fusion?
+**There is no established benchmark dataset for agent memory retrieval.** Existing IR benchmarks (BEIR, MS MARCO, TREC) measure document retrieval for web search and question answering — not episodic memory retrieval for AI agents. This is an open research gap.
 
-This is an open problem in the Information Retrieval community. Results are evaluated on standard IR benchmarks (BEIR, MS MARCO) and are applicable to any system that today runs keyword and vector search in separate passes: enterprise search, RAG pipelines, biomedical retrieval, legal search, and e-commerce.
+---
 
-### Primary Application: OpenClaw Agent Memory
+## Motivation: OpenClaw
 
-The most important concrete application driving this research is [OpenClaw's](https://github.com/openclaw) agent memory system. OpenClaw is an AI agent framework whose memory layer (`memory-core`) stores observations, tool results, and conversation history in SQLite. At query time it must retrieve the most relevant memories fast — latency directly impacts agent response time.
-
-OpenClaw's current retrieval issues two separate SQL queries — one for FTS5 keyword search and one for vector search — then fuses them in JavaScript using Reciprocal Rank Fusion (RRF):
+[OpenClaw](https://github.com/openclaw) is an AI agent framework that stores agent memory in SQLite using FTS5 (keyword index) and `sqlite-vec` (vector index). At query time it issues two separate SQL queries — one keyword, one vector — then fuses them in JavaScript using Reciprocal Rank Fusion (RRF):
 
 ```javascript
 // From dist/manager-CIjpkmRY.js
@@ -32,83 +37,110 @@ const merged = await mergeHybridResults({
 });
 ```
 
-**Issues with this approach:**
+**Problems with this approach:**
 - Two separate SQL queries (double I/O)
-- Fusion happens in JavaScript, not in the database
 - Must always fetch 200 candidates — no early termination
-- Cannot leverage SQLite query planner
-- Latency around 50ms even on small datasets
+- Fusion happens in JavaScript, outside the database engine
+- Latency ~50ms even on small memory databases
+- Designed for document retrieval, not episodic agent memory
 
-This pattern is not unique to OpenClaw — it is the dominant architecture in Elasticsearch hybrid search, PostgreSQL with pgvector, and most SQLite-based RAG stacks. A solution here generalizes broadly.
+---
+
+## Research Questions
+
+1. **Efficiency:** Can hybrid retrieval for agent memory be made significantly faster without losing retrieval quality?
+2. **Effectiveness:** Does the current RRF approach retrieve the right memories? Where does it fail?
+3. **Benchmark gap:** How should agent memory retrieval be evaluated, given no standard benchmark exists?
+4. **Architecture:** Is a DB-level unified retrieval operator (interleaved FTS + vector in C/SQLite) better than application-level fusion?
+
+---
+
+## What We Found
+
+### Embedding model used by OpenClaw
+
+OpenClaw uses **API-based models** when keys are available:
+- Gemini: `gemini-embedding-001` (3,072 dims)
+- OpenAI: `text-embedding-3-small`
+
+When no API key is supplied, it falls back to a **local GGUF model** via `node-llama-cpp`:
+- Default: `embeddinggemma-300m-qat-Q8_0.gguf` (300M param, quantised Gemma)
+
+For our benchmarks we used `all-MiniLM-L6-v2` — free, local, no API key required. This is a general-purpose sentence similarity model, not a retrieval-trained model. Our BEIR results are therefore a lower bound — OpenClaw's actual production quality is higher.
+
+### Benchmark used: BEIR NFCorpus
+
+We used BEIR NFCorpus (3,633 medical documents, 323 queries) as a proxy benchmark because it has ground-truth relevance labels. This is a harder-than-average IR dataset — medical queries vs research abstracts with large vocabulary gaps. It is **not** an agent memory dataset, but it allowed controlled comparison of retrieval methods.
+
+### Results
+
+| Method | NDCG@10 | Latency | vs RRF |
+|---|---|---|---|
+| RRF baseline (BM25 + vector, top-100 each) | 0.331 | 55ms | — |
+| Interleaved retrieval (Python) | 0.312 | 56ms | -5.6% NDCG, no speedup |
+| **Cascaded retrieval (3-stage)** | **0.297** | **19ms** | **-10% NDCG, 3.52x faster** |
+| Fast ColBERT (BM25 pre-filter + ColBERT rerank) | 0.172 | 4,455ms | -48% NDCG, 80x slower |
+| Full ColBERT (bert-base-uncased, no pre-filter) | 0.207 | 123ms | -37% NDCG, 2.2x slower |
+
+### RRF Failure Analysis
+
+We analysed all 323 queries to understand where RRF fails. Key findings:
+
+- **81 / 323 queries (25%) scored NDCG@10 = 0** — zero relevant docs in top-10
+- The dominant failure (**89.9% of missed docs**) is that relevant documents were **not in either the FTS5 or vector top-100 candidate pool** — no amount of fusion improvement can fix this
+- FTS5 returned zero results for **53% of queries** (vocabulary mismatch)
+- Vector search never returned zero results, but still missed 79.1% of relevant docs (weak embedding model)
+- Pure fusion failures (both indexes found the doc but RRF ranked it too low) affected only **5 queries** — a minor issue
+
+**The 100-candidate ceiling is the bottleneck, not the fusion algorithm.**
+
+---
+
+## Why BEIR is the Wrong Benchmark for This Problem
+
+Our BEIR results reveal a key insight: the failures we observed are largely a consequence of using a **general-purpose embedding model** on a **domain-specialised IR dataset**. This is not what OpenClaw users experience.
+
+For agent memory retrieval:
+- Queries are written by the same person who wrote the memories — vocabulary overlap is high
+- Documents are short episodic chunks, not long research abstracts
+- Relevant memories are often recently written — temporal recency is a strong signal
+- The corpus is small (hundreds to low thousands) — exhaustive search is feasible
+
+There is **no standard benchmark dataset** for agent memory retrieval. This is itself a research contribution opportunity: defining the evaluation protocol, metrics, and dataset for this problem.
 
 ---
 
 ## What We Tried
 
-### Phase 1 — Fix the Baseline (Week 1)
+### Phase 1 — Fix the baseline
+Initial benchmarks used fake vector search (recency-based). Fixed by computing real embeddings with `all-MiniLM-L6-v2`. NDCG improved from 0.009 → 0.331.
 
-**Problem discovered:** Initial benchmarks used fake vector search (sorted by recency), giving meaningless NDCG scores (~0.009).
+### Phase 2 — Interleaved retrieval with early termination
+Python-level interleaved fetching from FTS5 and vector indexes. Result: 10% slower than RRF despite fetching 65% fewer docs. Python overhead dominated. **Failed.**
 
-**Fix:**
-- Implemented real semantic vector search using `sentence-transformers` (`all-MiniLM-L6-v2`)
-- Built `beir_nfcorpus.db` with 3,633 real document embeddings from the BEIR NFCorpus dataset
-- Re-ran all benchmarks with real embeddings
+### Phase 3 — Cascaded retrieval (3-stage pipeline)
+BM25 pre-filter (100 candidates) → vector reranking (top 30) → full hybrid scoring (top 10). Result: **3.52x faster** at the cost of 10% NDCG. **Current best for deployment.**
 
-**Result:** NDCG@10 jumped from 0.009 → 0.331 (36x improvement). Established a solid RRF baseline.
-
----
-
-### Phase 2 — Interleaved Retrieval with Early Termination (Week 1)
-
-**Approach:** Instead of fetching all candidates from both indexes and then merging, interleave fetches from FTS5 and vector indexes one-by-one and stop as soon as the top-k ranking stabilises.
-
-**Benchmark dataset:** BEIR NFCorpus — 3,633 documents, 323 queries.
-
-| Metric | RRF (baseline) | Interleaved | Delta |
-|---|---|---|---|
-| NDCG@10 | 0.331 | 0.312 | -5.6% |
-| Recall@10 | 0.163 | 0.156 | -4.3% |
-| Precision@10 | 0.253 | 0.234 | -7.5% |
-| Avg latency | 50.2ms | 55.7ms | **+10% slower** |
-| Docs fetched | 200 | ~60–80 | -65% |
-
-**Outcome:** Failed to beat RRF. Despite fetching far fewer documents, Python-level overhead (sorting every 10 fetches, incremental score computation) dominated and made it slower.
-
-**Key learning:** Algorithm-level improvements are undermined by implementation-level overhead. Python is the wrong layer for this optimisation.
+### Phase 4 — ColBERT benchmarks
+Tested both fast ColBERT (BM25 pre-filter + ColBERT rerank with `bert-base-uncased`) and full ColBERT (no pre-filter). Both performed **worse** than RRF because `bert-base-uncased` was never trained for retrieval. A proper ColBERT v2 checkpoint would be needed for fair comparison.
 
 ---
 
-### Phase 3 — Cascaded Retrieval (Week 2)
+## Next Steps
 
-**Approach:** A 3-stage pipeline that progressively narrows the candidate set:
+### Immediate (1–2 weeks)
+1. **Build an agent memory evaluation dataset** — use real OpenClaw memory chunks + LLM-generated queries with relevance labels. This is the missing piece.
+2. **Re-benchmark on OpenClaw's actual embedding model** (`embeddinggemma-300m-qat`) to get results representative of real usage.
+3. **Tune cascaded retrieval** — grid search stage sizes and fusion weights on agent memory queries specifically.
 
-```
-Stage 1: BM25-only (100 candidates)   — fast, cheap
-Stage 2: Vector reranking (top 30)    — medium cost
-Stage 3: Full hybrid scoring (top 10) — precise
-```
+### Medium-term (4–6 weeks)
+4. **Test DPR as a drop-in replacement** for `all-MiniLM-L6-v2` on BEIR to establish a proper IR baseline.
+5. **Test ColBERT v2** (`colbert-ir/colbertv2.0`) as a re-ranker on top of cascaded BM25 pre-filtering.
+6. **Query expansion** — expand agent queries before FTS5 to reduce vocabulary mismatch failures (Category A).
 
-**Results:**
-
-| Metric | RRF (baseline) | Cascaded | Delta |
-|---|---|---|---|
-| NDCG@10 | 0.331 | 0.297 | -10.3% |
-| Recall@10 | 0.163 | 0.143 | -12.3% |
-| Precision@10 | 0.253 | 0.286 | +13.4% |
-| Avg latency | 54.5ms | **15.5ms** | **3.52x faster** |
-
-**Outcome:** Winner for immediate deployment. 3.52x speedup at the cost of ~10% NDCG drop. The quality gap is expected to narrow to 5–7% with tuning.
-
----
-
-## Summary of All Results
-
-| Method | Latency | NDCG@10 | Speedup | Verdict |
-|---|---|---|---|---|
-| RRF (baseline) | 54.5ms | 0.331 | 1.00x | Production baseline |
-| Interleaved (Python) | 56.0ms | 0.312 | 0.97x | Failed — overhead too high |
-| **Cascaded** | **15.5ms** | **0.297** | **3.52x** | **Current best** |
-| Unified C/Rust operator | ~5–10ms (est.) | ~0.33 (est.) | ~5–10x | Future goal |
+### Long-term (8–12 weeks)
+7. **DB-level unified operator in C/Rust** — implement interleaved FTS5 + vector traversal as a SQLite virtual table. Expected: same NDCG as RRF at 5–10ms latency. Model-agnostic contribution.
+8. **Define the agent memory retrieval benchmark** — evaluation protocol, metrics beyond NDCG (task completion, memory staleness), and a reusable dataset.
 
 ---
 
@@ -117,139 +149,46 @@ Stage 3: Full hybrid scoring (top 10) — precise
 ```
 .
 ├── scripts/
-│   ├── benchmark_beir_real.py       # Main benchmark with real embeddings
-│   ├── cascaded_retrieval.py        # Cascaded 3-stage retrieval
-│   ├── compare_rrf_vs_interleaved.py
-│   ├── benchmark_cascaded.py
-│   ├── compute_beir_embeddings.py   # Precompute BEIR embeddings
-│   └── plot_research_results.py     # Generate figures
-├── figures/                         # Benchmark plots
-├── datasets/                        # BEIR NFCorpus data
-├── beir_nfcorpus.db                 # SQLite DB with real embeddings (18MB)
-├── hybrid_retriever.py              # Core hybrid retrieval implementation
-├── requirements.txt
-├── RESEARCH_PROPOSAL.md
-├── CASCADED_RESULTS.md
-├── FINAL_RESULTS.md
-└── RESEARCH_SUMMARY.md
+│   ├── benchmark_beir_real.py          # RRF + interleaved benchmark (real embeddings)
+│   ├── cascaded_retrieval.py           # Cascaded 3-stage retrieval
+│   ├── benchmark_cascaded.py           # Cascaded benchmark
+│   ├── benchmark_colbert_full.py       # Full ColBERT benchmark (no pre-filter)
+│   ├── fast_colbert.py                 # Fast ColBERT (BM25 pre-filter + rerank)
+│   ├── analyze_rrf_failures.py         # Per-query RRF failure analysis
+│   ├── analyze_keyword_vs_semantic.py  # Keyword vs semantic miss breakdown
+│   ├── analyze_topk_ceiling.py         # Top-k ceiling analysis
+│   ├── compute_beir_embeddings.py      # Precompute BEIR embeddings
+│   └── plot_research_results.py        # Generate figures
+├── figures/                            # Benchmark plots
+├── datasets/                           # BEIR NFCorpus data
+├── beir_nfcorpus.db                    # SQLite DB with real embeddings (18MB)
+├── hybrid_retriever.py                 # Core hybrid retrieval implementation
+├── RRF_FAILURE_ANALYSIS.md             # Detailed per-query failure analysis
+├── CASCADED_RESULTS.md                 # Cascaded retrieval results
+├── RESEARCH_PROPOSAL.md                # Original research proposal
+└── requirements.txt
 ```
 
 ---
 
-## Possible Next Steps
+## Embedding Model Notes
 
-### Short-term (1–2 weeks) — Improve Cascaded Retrieval
-
-1. **Tune stage sizes** — Grid search over (Stage 1 size, Stage 2 size) on validation set to close the 10% NDCG gap.
-2. **Add FTS5 fallback** — If BM25 Stage 1 returns < N results, fall back to a broader scan to improve recall.
-3. **Optimise vector scoring** — Use approximate nearest neighbour (ANN) at Stage 2 instead of exact cosine.
-4. **Test on larger datasets** — Scale to 10K–100K chunks to validate speedup holds at OpenClaw's real-world scale.
-
-### Medium-term (4–6 weeks) — Smarter Interleaving
-
-Python overhead killed the interleaved approach, but the algorithm is sound. Options:
-
-- **Score-based early termination** — Stop when the minimum possible score of unseen docs is below the k-th result's current score (WAND/BMW-style).
-- **Adaptive interleaving ratio** — Dynamically adjust how many FTS vs. vector candidates to fetch based on query characteristics.
-- **Query expansion** — Expand the original query before FTS5 stage to improve recall without increasing candidate size.
-
-### Long-term (8–12 weeks) — DB-Level Unified Operator
-
-The original research goal: implement a **SQLite virtual table in C/Rust** that performs interleaved hybrid retrieval inside the database engine.
-
-```sql
--- Target: single query, all fusion in C
-SELECT * FROM vtab_hybrid
-WHERE fts_match(?, text)
-  AND vector_distance(?, embedding) < 0.8
-ORDER BY hybrid_score DESC
-LIMIT 10;
-```
-
-**Expected gains:**
-- Latency: 5–10ms (5–10x faster than RRF)
-- NDCG: No loss (exact fusion, no approximation)
-- Memory: Lower (no JavaScript overhead)
-
-This would be a novel contribution to both OpenClaw and the broader SQLite hybrid retrieval ecosystem.
-
----
-
-## Datasets & Benchmarks
-
-We use a three-tier dataset strategy to validate that results generalize across scales and domains.
-
-### Tier 1 — BEIR NFCorpus (current experiments)
-
-- **Size:** 3,633 documents, 323 queries, medical/nutrition domain
-- **Why:** Queries mix exact biomedical terminology with semantic reasoning — the same keyword+concept duality present in agent memory queries. Small enough to iterate quickly; hard enough to expose quality differences between methods.
-- **Embeddings:** `sentence-transformers/all-MiniLM-L6-v2` (384 dimensions)
-
-**Published NDCG@10 on NFCorpus** (from BEIR paper, Thakur et al. 2021):
-
-| Method | Type | NDCG@10 | Notes |
-|--------|------|---------|-------|
-| BM25 (Elasticsearch) | Sparse/Lexical | 0.325 | Robust baseline |
-| DPR (multi-dataset) | Dense bi-encoder | 0.189 | Poor OOD generalization |
-| ANCE | Dense bi-encoder | 0.237 | MS MARCO trained |
-| TAS-B | Dense bi-encoder | 0.319 | Balanced dense |
-| ColBERT-v2 | Late interaction | 0.338 | Best single-model |
-| monoT5 (re-ranker) | Cross-encoder | 0.350 | Highest quality, slowest |
-
-**Our results on NFCorpus:**
-
-| Method | NDCG@10 | Latency | Speedup vs RRF | Notes |
-|--------|---------|---------|----------------|-------|
-| RRF (BM25 + dense, exhaustive) | 0.331 | 50.2ms | 1.0× | Our baseline |
-| Interleaved (early termination) | 0.312 | 55.7ms | 0.9× | Python overhead negates gains |
-| Cascaded (BM25 filter → vector rerank) | 0.299 | 19.4ms | 2.9× | Best efficiency/quality trade-off so far |
-| Fast ColBERT (BM25 → MaxSim rerank) | 0.171 | 4455ms | 0.01× | Token embeddings too slow without GPU |
-
-**Key gap:** Our RRF baseline (0.331) already matches published BM25 (0.325) and approaches ColBERT-v2 (0.338) because we combine both signals. The research question is whether we can reach that quality at cascaded-retrieval speeds (sub-20ms).
-
----
-
-### Tier 2 — MS MARCO Passage (scalability validation, planned)
-
-- **Size:** 8.8M passages, ~6,980 dev queries
-- **Why:** Industry-standard scale benchmark used by Elasticsearch, Vespa, Weaviate, and the broader IR community. Required to demonstrate that the unified operator scales beyond small corpora.
-- **Primary metric:** MRR@10 (dev set), NDCG@10
-
-**Published MRR@10 on MS MARCO dev set** (representative numbers from literature):
-
-| Method | Type | MRR@10 | Notes |
-|--------|------|--------|-------|
-| BM25 | Sparse | 0.184 | Anserini default |
-| DPR | Dense bi-encoder | 0.318 | Facebook, NQ-trained |
-| ANCE | Dense bi-encoder | 0.330 | Hard-negative mining |
-| ColBERT-v2 | Late interaction | 0.397 | State of the art retriever |
-| SPLADE-v3 | Learned sparse | ~0.400 | Competitive with ColBERT |
-| monoT5 (re-ranker over BM25) | Cross-encoder | 0.422 | Two-stage, high latency |
-| RRF (BM25 + dense) | Hybrid fusion | ~0.340 | Typical hybrid baseline |
-
----
-
-### Tier 3 — OpenClaw Production DB (deployment target)
-
-- **Size:** Variable (30–100k+ agent memory entries in practice)
-- **Embeddings:** `gemini-embedding-001` (3072 dimensions)
-- **Why:** The primary application. Latency here directly impacts agent response time. No public ground-truth relevance judgments — evaluation is latency-focused with spot-check quality checks.
-
----
-
-### What the Benchmarks Tell Us
-
-The research problem lives in the gap between Tier 1 quality numbers and Tier 3 latency requirements:
-
-- Exhaustive RRF matches ColBERT-v2 quality on NFCorpus but costs 50ms at small scale — unacceptable at 100k+ entries
-- Cascaded retrieval hits 19ms but loses ~10% NDCG — the pruning is too aggressive
-- The unified interleaved operator targets: **ColBERT-v2 quality + cascaded latency** in a single DB-level pass
+| Model | Used by | Retrieval-trained? |
+|---|---|---|
+| `embeddinggemma-300m-qat` | OpenClaw (local, no API key) | General purpose |
+| `gemini-embedding-001` | OpenClaw (Gemini API) | Yes (Google) |
+| `text-embedding-3-small` | OpenClaw (OpenAI API) | Yes (OpenAI) |
+| `all-MiniLM-L6-v2` | Our benchmarks | No (sentence similarity only) |
+| DPR | Not yet tested | Yes (MS MARCO) |
+| ColBERT v2 | Tested (wrong checkpoint) | Yes (MS MARCO + hard negatives) |
 
 ---
 
 ## References
 
 - Cormack et al. (2009) — [Reciprocal Rank Fusion](https://dl.acm.org/doi/10.1145/1571941.1572114)
+- Karpukhin et al. (2020) — [Dense Passage Retrieval (DPR)](https://arxiv.org/abs/2004.04906)
+- Santhanam et al. (2022) — [ColBERTv2](https://arxiv.org/abs/2112.01488)
 - [BEIR Benchmark](https://github.com/beir-cellar/beir)
 - [sqlite-vec](https://github.com/asg017/sqlite-vec)
 - [SQLite FTS5](https://www.sqlite.org/fts5.html)
