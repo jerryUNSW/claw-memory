@@ -8,25 +8,48 @@ Dataset: BEIR NFCorpus (3,633 medical/nutrition documents)
 
 ## Summary
 
-| Stat | Value |
-|---|---|
-| Queries with NDCG=0 | 81 / 323 (25%) |
-| Total relevant docs missed | 1114 |
-| FTS5 returned nothing | 46 queries |
-| Relevant docs not in FTS nor vec top-100 | 1001 |
-| Relevant docs in vec top-100 only (RRF ranked too low) | 99 |
-| Relevant docs in both top-100 (pure fusion fail) | 6 |
+- **323 queries** evaluated on BEIR NFCorpus
+- **81 queries (25%)** scored NDCG@10 = 0 — zero relevant docs in top-10
+- **1,114 relevant docs** were missed across those 81 queries
 
 ---
 
 ## Root Cause Categories
 
-| Category | Description | Queries affected | Docs missed |
-|---|---|---|---|
-| A | FTS5 returned nothing (vocabulary mismatch) | **46 queries** (57%) | — |
-| B | Relevant doc not in FTS nor vec top-100 (recall ceiling) | **77 queries** (95%) | **1,001 docs** |
-| C | Both indexes found it but RRF fusion ranked it below top-10 | **5 queries** (6%) | **6 docs** |
-| — | Vec top-100 only, not FTS (RRF score diluted) | across many queries | **99 docs** |
+Three distinct reasons why RRF returned zero relevant results:
+
+### Category A — FTS5 returned nothing
+- **46 out of 81 queries (57%)**
+- The query's words had no keyword match in the corpus at all
+- FTS5 uses exact token matching — unusual phrasing, brand names, or medical jargon returns an empty set
+- Vector search ran alone but was not enough to recover the relevant docs
+
+### Category B — Relevant docs not in either top-100 (dominant failure)
+- **77 out of 81 queries (95%), 1,001 docs missed**
+- Neither FTS5 nor vector search retrieved the relevant doc within their top-100 candidates
+- RRF never saw these docs — you cannot fuse what was never retrieved
+- The hard ceiling of 100 candidates per index is the root cause
+- **This accounts for 89.9% of all missed docs**
+
+### Category C — Fusion ranked it too low
+- **5 out of 81 queries (6%), 6 docs missed**
+- Both FTS5 and vector search found the relevant doc in their top-100
+- But the combined RRF score ranked it below position 10
+- This is a pure weighting/fusion failure
+- **Only 0.5% of missed docs — the least impactful category**
+
+### Additional: Vec top-100 only (score diluted)
+- **99 docs** were in the vector top-100 but not in FTS top-100
+- RRF gave them a weaker fused score (only one index contributing) and they fell below top-10
+- Expanding the final cutoff from top-10 to top-20 would recover some of these
+
+---
+
+### Key Takeaway
+
+Expanding top-k (10 → 20 or 50) would only recover **10% of missed docs** (113 docs).
+The other **90% (1,001 docs)** require a better first-stage retriever with higher recall —
+such as a dense retrieval model (DPR, ColBERT v2) that encodes meaning rather than exact tokens.
 
 Note: categories overlap — a single query can have failures from multiple categories.
 - **45 queries** failed purely due to Category B (recall failure only, no fusion issue)
