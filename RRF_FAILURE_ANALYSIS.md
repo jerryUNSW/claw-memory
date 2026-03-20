@@ -6,6 +6,47 @@ Dataset: BEIR NFCorpus (3,633 medical/nutrition documents)
 
 ---
 
+## Embedding Model Context
+
+### What we used for benchmarking: `all-MiniLM-L6-v2`
+
+We used `sentence-transformers/all-MiniLM-L6-v2` for all vector search in these benchmarks.
+
+**Why:** It runs entirely locally and is free — calling Gemini or OpenAI APIs for 3,633 documents × 323 queries would require API keys and incur cost. For a research benchmark, a free local model was the practical choice.
+
+**The limitation:** `all-MiniLM-L6-v2` is a **general-purpose sentence similarity model**, not a retrieval model. It was trained to recognise paraphrases, not to answer "does this document answer this query?". This is a key reason why 9,572 relevant docs were missed by both FTS5 and vector search — the model's vector space is not optimised for query-document relevance.
+
+### What OpenClaw actually uses in production
+
+OpenClaw uses **API-based embedding models** — it never uses `all-MiniLM-L6-v2`:
+
+- **Gemini provider (default):** `gemini-embedding-001` — 3,072 dimensions, trained by Google for retrieval tasks
+- **OpenAI provider:** `text-embedding-3-small`
+- **Voyage AI:** also supported
+
+This means our benchmark results are **not directly representative of OpenClaw's real-world retrieval quality**. `gemini-embedding-001` is a much stronger retrieval-trained model and would likely have significantly better recall than what we measured.
+
+### Better alternatives we could use for future benchmarks
+
+Two retrieval-trained models worth testing:
+
+**DPR (Dense Passage Retrieval)**
+- Produces 1 vector per document (same architecture as `all-MiniLM-L6-v2`)
+- But trained on MS MARCO with retrieval supervision: (query, relevant doc, irrelevant doc) triples
+- The training signal is "does this document answer this query?" — exactly what we need
+- Fast at inference time, same storage cost as current setup
+- Expected to significantly reduce the "both failed" miss count
+
+**ColBERT v2 (`colbert-ir/colbertv2.0`)**
+- Produces 1 vector **per token** instead of per document
+- Scores using MaxSim: for each query token, find the best matching document token, then sum
+- Also retrieval-trained on MS MARCO with hard negatives
+- Published NDCG@10 on NFCorpus: ~0.38–0.40 vs our RRF baseline of 0.331
+- Slower and higher storage cost, but highest effectiveness
+- Would be used as a re-ranker on top of a fast first-stage retriever
+
+---
+
 ## Summary
 
 - **323 queries** evaluated on BEIR NFCorpus
