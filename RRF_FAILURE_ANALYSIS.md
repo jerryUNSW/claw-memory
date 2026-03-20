@@ -21,15 +21,32 @@ Dataset: BEIR NFCorpus (3,633 medical/nutrition documents)
 
 ## Root Cause Categories
 
-### Category A — FTS5 returned nothing (query vocabulary not in index)
-Query terms have no keyword match in the corpus. Vector search alone was not enough to surface relevant docs.
+| Category | Description | Queries affected | Docs missed |
+|---|---|---|---|
+| A | FTS5 returned nothing (vocabulary mismatch) | **46 queries** (57%) | — |
+| B | Relevant doc not in FTS nor vec top-100 (recall ceiling) | **77 queries** (95%) | **1,001 docs** |
+| C | Both indexes found it but RRF fusion ranked it below top-10 | **5 queries** (6%) | **6 docs** |
+| — | Vec top-100 only, not FTS (RRF score diluted) | across many queries | **99 docs** |
 
-### Category B — Relevant docs outside both top-100 candidates
-Neither FTS5 nor vector search retrieved the relevant doc in their top-100.
-RRF never had a chance — the hard ceiling of 100 candidates per index is the bottleneck.
+Note: categories overlap — a single query can have failures from multiple categories.
+- **45 queries** failed purely due to Category B (recall failure only, no fusion issue)
+- **Only 1 query** failed purely due to Category C (fusion failure only)
+- **23 queries** had FTS5 return nothing AND all relevant docs were outside both top-100
 
-### Category C — Fusion score too low (both indexes found it, RRF buried it)
-Both FTS5 and vector found the doc, but the combined RRF score ranked it below position 10.
+### Category A — FTS5 returned nothing (46 queries, 57% of failures)
+Query terms have no keyword match in the corpus at all. FTS5 uses exact token matching — queries with medical jargon, brand names, or unusual phrasing return an empty result set. Vector search ran alone but wasn't sufficient.
+
+**Implication:** A semantic-first retriever (dense retrieval / ColBERT v2) would not suffer this — it encodes meaning, not exact tokens.
+
+### Category B — Relevant docs outside both top-100 candidates (77 queries, 1,001 docs missed)
+Neither FTS5 nor vector search retrieved the relevant doc in their top-100 candidates. **This is the dominant failure mode.** RRF never had a chance to surface these — you cannot fuse what was never retrieved.
+
+**Implication:** The 100-candidate ceiling is too tight. Options: (1) expand to top-200/500, (2) use a better first-stage retriever trained for recall (DPR, ColBERT v2), (3) query expansion.
+
+### Category C — Fusion score too low (5 queries, 6 docs missed)
+Both FTS5 and vector search retrieved the relevant doc in their top-100, but the RRF weighted combination ranked it outside the top-10. This is a pure fusion/weighting failure.
+
+**Implication:** Tuning RRF weights or using learned fusion could fix these — but this affects only 5 queries, so it is the least impactful category.
 
 ---
 
