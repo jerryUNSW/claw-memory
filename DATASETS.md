@@ -164,6 +164,46 @@ These are the datasets we benchmarked on in the first phase of the project. They
 
 ---
 
+## Ground Truth Evidence Annotations
+
+A critical question for our research: do these datasets annotate *which specific chunk* contains the answer, so we can compute Recall@K directly?
+
+**Answer: Yes — both primary datasets provide this.**
+
+| Dataset | Annotation | Detail |
+|---------|-----------|--------|
+| **LongMemEval** | `longmemeval_oracle.json` | Each question maps to its ground-truth evidence session(s). Oracle retrieval = answering with only those sessions provided. Recall@K is directly computable at session level. |
+| **LoCoMo** | `qa[*].evidence` field | Each QA pair includes the dialog IDs of the specific turns containing the answer. Recall@K is directly computable at turn/chunk level. |
+| MemoryAgentBench | Not confirmed | Dataset structure does not explicitly document evidence span annotations. |
+| AMA-Bench | Partial | Expert-curated QA pairs for real trajectories; evidence spans present for real trajectories, less clear for synthetic. |
+
+### Why This Matters
+
+Every existing paper (HyMem, MAGMA, MemR3, xMemory) has used these datasets but only reported **end-to-end LLM-as-Judge accuracy** — they never used the evidence annotations to measure retrieval quality directly.
+
+We will use the existing evidence annotations to compute **Recall@K**, measuring whether the retriever returned the right chunk, independently of the LLM layer. This is a new use of existing annotations that no prior work has exploited.
+
+### Recall@K Computation Plan
+
+**LoCoMo:**
+- Chunk conversations into fixed-size segments (e.g., 5-turn windows)
+- Each QA pair has `evidence` = list of dialog IDs
+- Map dialog IDs → chunks
+- Run retriever → top-K chunks
+- Recall@K = fraction of questions where at least one evidence chunk appears in top-K
+
+**LongMemEval:**
+- Use session as the retrieval unit (already segmented into sessions)
+- Each question has oracle evidence sessions in `longmemeval_oracle.json`
+- Run retriever → top-K sessions
+- Recall@K = fraction of questions where at least one evidence session appears in top-K
+
+### Caveat on LoCoMo Annotation Quality
+
+The LoCoMo GitHub repo (issue #27) documents known annotation errors: hallucinated answer keys, temporal mismatches, speaker misattribution. These errors affect all systems equally and do not invalidate cross-system comparisons, but should be noted as a limitation in the paper.
+
+---
+
 ## Recommended Testing Sequence
 
 | Priority | Dataset | Why | Effort |
