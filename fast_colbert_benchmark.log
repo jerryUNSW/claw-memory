@@ -1,0 +1,66 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+================================================================================
+🔬 Fast ColBERT Benchmark: nfcorpus
+================================================================================
+
+Loading model: bert-base-uncased...
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 7819.62it/s]
+[1mBertModel LOAD REPORT[0m from: bert-base-uncased
+Key                                        | Status     |  | 
+-------------------------------------------+------------+--+-
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
+cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
+cls.seq_relationship.weight                | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
+cls.predictions.bias                       | UNEXPECTED |  | 
+cls.seq_relationship.bias                  | UNEXPECTED |  | 
+cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
+
+[3mNotes:
+- UNEXPECTED[3m	:can be ignored when loading from different task/architecture; not ok if you expect identical arch.[0m
+Using device: cpu
+✅ Loaded 323 queries with 323 qrels
+
+================================================================================
+Running Fast ColBERT benchmark...
+================================================================================
+Progress: 50/323 queries...
+Progress: 100/323 queries...
+Progress: 150/323 queries...
+Progress: 200/323 queries...
+Progress: 250/323 queries...
+Progress: 300/323 queries...
+
+================================================================================
+📊 FAST COLBERT RESULTS
+================================================================================
+
+Metric          Value       
+------------------------------
+NDCG@10         0.1715      
+Recall@10       0.0882      
+Precision@10    0.2084      
+MAP@10          0.0594      
+MRR@10          0.2989      
+Latency         4455.0       ms
+
+Stage breakdown:
+  Stage 1 (BM25):    19.7ms (0.4%)
+  Stage 2 (ColBERT): 4435.3ms (99.6%)
+
+================================================================================
+📊 COMPARISON TO OTHER METHODS
+================================================================================
+
+Method               NDCG@10      Latency      Speedup     
+------------------------------------------------------------
+RRF                  0.3309       55.2         1.00x       
+Cascaded             0.2986       19.4         2.85x       
+Fast ColBERT         0.1715       4455.0       0.01x       
+
+Key insights:
+  - Fast ColBERT vs RRF: -48.2% NDCG, 0.01x speed
+  - Fast ColBERT vs Cascaded: -42.6% NDCG, 0.00x speed
+
+💾 Results saved to: fast_colbert_results.json
+================================================================================

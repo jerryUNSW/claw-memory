@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/Users/jerry/Desktop/OpenClaw-Hybrid-Retrieval-Research/scripts/colbert_implementation.py", line 18, in <module>
+    from sentence_transformers import SentenceTransformer
+ModuleNotFoundError: No module named 'sentence_transformers'

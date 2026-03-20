@@ -1,0 +1,90 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+================================================================================
+🔬 BEIR Benchmark with Real Embeddings: nfcorpus
+================================================================================
+
+Loading embedding model...
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights: 100%|██████████| 103/103 [00:00<00:00, 7814.86it/s]
+[1mBertModel LOAD REPORT[0m from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  | 
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  | 
+
+[3mNotes:
+- UNEXPECTED[3m	:can be ignored when loading from different task/architecture; not ok if you expect identical arch.[0m
+✅ Model loaded (dimension: 384)
+
+Connecting to database: beir_nfcorpus.db
+✅ Loaded 323 queries with 323 qrels
+
+================================================================================
+Running benchmarks...
+================================================================================
+Warning: FTS5 query failed for 'Breast Cancer & Alcohol: How Much is Safe?': fts5: syntax error near "&"
+Warning: FTS5 query failed for 'Breast Cancer & Alcohol: How Much is Safe?': fts5: syntax error near "&"
+Warning: FTS5 query failed for 'Didn't another study show carnitine was good for the heart?': fts5: syntax error near "'"
+Warning: FTS5 query failed for 'Didn't another study show carnitine was good for the heart?': fts5: syntax error near "'"
+Warning: FTS5 query failed for 'What do you think of Dr. Jenkins' take on paleolithic diets?': fts5: syntax error near "."
+Warning: FTS5 query failed for 'What do you think of Dr. Jenkins' take on paleolithic diets?': fts5: syntax error near "."
+Progress: 50/323 queries...
+Warning: FTS5 query failed for 'Dr. Dean Ornish': fts5: syntax error near "."
+Warning: FTS5 query failed for 'Dr. Dean Ornish': fts5: syntax error near "."
+Warning: FTS5 query failed for 'Dr. Walter Willett': fts5: syntax error near "."
+Warning: FTS5 query failed for 'Dr. Walter Willett': fts5: syntax error near "."
+Progress: 100/323 queries...
+Progress: 150/323 queries...
+Warning: FTS5 query failed for 'Parkinson's disease': fts5: syntax error near "'"
+Warning: FTS5 query failed for 'Parkinson's disease': fts5: syntax error near "'"
+Warning: FTS5 query failed for 'St. John's wort': fts5: syntax error near "."
+Warning: FTS5 query failed for 'St. John's wort': fts5: syntax error near "."
+Progress: 200/323 queries...
+Warning: FTS5 query failed for 'The Actual Benefit of Diet vs. Drugs': fts5: syntax error near "."
+Warning: FTS5 query failed for 'The Actual Benefit of Diet vs. Drugs': fts5: syntax error near "."
+Warning: FTS5 query failed for 'Caloric Restriction vs. Plant-Based Diets': fts5: syntax error near "."
+Warning: FTS5 query failed for 'Caloric Restriction vs. Plant-Based Diets': fts5: syntax error near "."
+Warning: FTS5 query failed for 'Treating Asthma With Plants vs. Supplements?': fts5: syntax error near "."
+Warning: FTS5 query failed for 'Treating Asthma With Plants vs. Supplements?': fts5: syntax error near "."
+Progress: 250/323 queries...
+Warning: FTS5 query failed for 'Flaxseeds & Breast Cancer Survival: Clinical Evidence': fts5: syntax error near "&"
+Warning: FTS5 query failed for 'Flaxseeds & Breast Cancer Survival: Clinical Evidence': fts5: syntax error near "&"
+Warning: FTS5 query failed for 'Do Fruit & Nut Bars Cause Weight Gain?': fts5: syntax error near "&"
+Warning: FTS5 query failed for 'Do Fruit & Nut Bars Cause Weight Gain?': fts5: syntax error near "&"
+Warning: FTS5 query failed for 'Titanium Dioxide & Inflammatory Bowel Disease': fts5: syntax error near "&"
+Warning: FTS5 query failed for 'Titanium Dioxide & Inflammatory Bowel Disease': fts5: syntax error near "&"
+Warning: FTS5 query failed for 'Dietary Treatment of Crohn's Disease': fts5: syntax error near "'"
+Warning: FTS5 query failed for 'Dietary Treatment of Crohn's Disease': fts5: syntax error near "'"
+Warning: FTS5 query failed for 'Dragon's Blood': fts5: syntax error near "'"
+Warning: FTS5 query failed for 'Dragon's Blood': fts5: syntax error near "'"
+Warning: FTS5 query failed for 'Acne & Cancer Connection': fts5: syntax error near "&"
+Warning: FTS5 query failed for 'Acne & Cancer Connection': fts5: syntax error near "&"
+Warning: FTS5 query failed for 'Dietary Theory of Alzheimer's': fts5: syntax error near "'"
+Warning: FTS5 query failed for 'Dietary Theory of Alzheimer's': fts5: syntax error near "'"
+Warning: FTS5 query failed for 'Meat & Multiple Myeloma': fts5: syntax error near "&"
+Warning: FTS5 query failed for 'Meat & Multiple Myeloma': fts5: syntax error near "&"
+Progress: 300/323 queries...
+Warning: FTS5 query failed for 'Saturated Fat & Cancer Progression': fts5: syntax error near "&"
+Warning: FTS5 query failed for 'Saturated Fat & Cancer Progression': fts5: syntax error near "&"
+Warning: FTS5 query failed for 'Aluminum in Vaccines vs. Food': fts5: syntax error near "."
+Warning: FTS5 query failed for 'Aluminum in Vaccines vs. Food': fts5: syntax error near "."
+Warning: FTS5 query failed for 'Veggies vs. Cancer': fts5: syntax error near "."
+Warning: FTS5 query failed for 'Veggies vs. Cancer': fts5: syntax error near "."
+Warning: FTS5 query failed for 'Alcohol Risks vs. Benefits': fts5: syntax error near "."
+Warning: FTS5 query failed for 'Alcohol Risks vs. Benefits': fts5: syntax error near "."
+Warning: FTS5 query failed for 'Plant vs. Cow Calcium': fts5: syntax error near "."
+Warning: FTS5 query failed for 'Plant vs. Cow Calcium': fts5: syntax error near "."
+
+================================================================================
+📊 RESULTS WITH REAL EMBEDDINGS
+================================================================================
+
+Metric          RRF          Interleaved  Difference  
+------------------------------------------------------------
+NDCG            0.3309       0.3309       +0.0000
+RECALL          0.1631       0.1631       +0.0000
+PRECISION       0.2526       0.2526       +0.0000
+MAP             0.1186       0.1186       +0.0000
+MRR             0.5208       0.5208       +0.0000
+Latency (ms)    49.16        44.65        1.10x
+
+💾 Results saved to: beir_nfcorpus_real_results.json
+================================================================================

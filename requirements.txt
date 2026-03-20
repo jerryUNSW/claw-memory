@@ -1,0 +1,8 @@
+# Academic Plotting Dependencies
+matplotlib>=3.10.0
+numpy>=2.4.0
+
+# Optional: For advanced plots
+scipy>=1.14.0
+seaborn>=0.13.0
+pandas>=2.2.0

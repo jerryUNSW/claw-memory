@@ -1,0 +1,288 @@
+{
+  "queries": [
+    "memory workflow",
+    "SQLite database",
+    "session February 2026",
+    "LLM request handling",
+    "xiaohongshu project",
+    "triangle DDS system",
+    "regulation annotations",
+    "Python script",
+    "embedding cache",
+    "user authentication"
+  ],
+  "metrics": [
+    {
+      "query": "memory workflow",
+      "method": "RRF",
+      "latency_ms": 20.608582999557257,
+      "results_fetched": 31,
+      "results_returned": 10,
+      "top_result_id": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top_result_path": "memory/2026-03-05.md"
+    },
+    {
+      "query": "memory workflow",
+      "method": "Interleaved",
+      "latency_ms": 0.3280829987488687,
+      "results_fetched": 21,
+      "results_returned": 10,
+      "top_result_id": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top_result_path": "memory/2026-03-05.md"
+    },
+    {
+      "query": "SQLite database",
+      "method": "RRF",
+      "latency_ms": 0.21179200848564506,
+      "results_fetched": 30,
+      "results_returned": 10,
+      "top_result_id": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top_result_path": "memory/2026-03-05.md"
+    },
+    {
+      "query": "SQLite database",
+      "method": "Interleaved",
+      "latency_ms": 0.1449580304324627,
+      "results_fetched": 20,
+      "results_returned": 10,
+      "top_result_id": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top_result_path": "memory/2026-03-05.md"
+    },
+    {
+      "query": "session February 2026",
+      "method": "RRF",
+      "latency_ms": 0.1770830131135881,
+      "results_fetched": 30,
+      "results_returned": 10,
+      "top_result_id": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top_result_path": "memory/2026-03-05.md"
+    },
+    {
+      "query": "session February 2026",
+      "method": "Interleaved",
+      "latency_ms": 0.14220800949260592,
+      "results_fetched": 20,
+      "results_returned": 10,
+      "top_result_id": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top_result_path": "memory/2026-03-05.md"
+    },
+    {
+      "query": "LLM request handling",
+      "method": "RRF",
+      "latency_ms": 0.17183396266773343,
+      "results_fetched": 30,
+      "results_returned": 10,
+      "top_result_id": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top_result_path": "memory/2026-03-05.md"
+    },
+    {
+      "query": "LLM request handling",
+      "method": "Interleaved",
+      "latency_ms": 0.1370839891023934,
+      "results_fetched": 20,
+      "results_returned": 10,
+      "top_result_id": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top_result_path": "memory/2026-03-05.md"
+    },
+    {
+      "query": "xiaohongshu project",
+      "method": "RRF",
+      "latency_ms": 0.15833397628739476,
+      "results_fetched": 30,
+      "results_returned": 10,
+      "top_result_id": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top_result_path": "memory/2026-03-05.md"
+    },
+    {
+      "query": "xiaohongshu project",
+      "method": "Interleaved",
+      "latency_ms": 0.13762502931058407,
+      "results_fetched": 20,
+      "results_returned": 10,
+      "top_result_id": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top_result_path": "memory/2026-03-05.md"
+    },
+    {
+      "query": "triangle DDS system",
+      "method": "RRF",
+      "latency_ms": 0.1592919579707086,
+      "results_fetched": 30,
+      "results_returned": 10,
+      "top_result_id": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top_result_path": "memory/2026-03-05.md"
+    },
+    {
+      "query": "triangle DDS system",
+      "method": "Interleaved",
+      "latency_ms": 0.1365420175716281,
+      "results_fetched": 20,
+      "results_returned": 10,
+      "top_result_id": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top_result_path": "memory/2026-03-05.md"
+    },
+    {
+      "query": "regulation annotations",
+      "method": "RRF",
+      "latency_ms": 0.19520800560712814,
+      "results_fetched": 34,
+      "results_returned": 10,
+      "top_result_id": "e6201942f318e06a8897cb4c3e8a78612be108ae144e340ba664c524aa43c89b",
+      "top_result_path": "memory/2026-02-24-llm-request-rejected-your-cred.md"
+    },
+    {
+      "query": "regulation annotations",
+      "method": "Interleaved",
+      "latency_ms": 0.1633340143598616,
+      "results_fetched": 24,
+      "results_returned": 10,
+      "top_result_id": "e6201942f318e06a8897cb4c3e8a78612be108ae144e340ba664c524aa43c89b",
+      "top_result_path": "memory/2026-02-24-llm-request-rejected-your-cred.md"
+    },
+    {
+      "query": "Python script",
+      "method": "RRF",
+      "latency_ms": 0.15412503853440285,
+      "results_fetched": 30,
+      "results_returned": 10,
+      "top_result_id": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top_result_path": "memory/2026-03-05.md"
+    },
+    {
+      "query": "Python script",
+      "method": "Interleaved",
+      "latency_ms": 0.13574998592957854,
+      "results_fetched": 20,
+      "results_returned": 10,
+      "top_result_id": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top_result_path": "memory/2026-03-05.md"
+    },
+    {
+      "query": "embedding cache",
+      "method": "RRF",
+      "latency_ms": 0.1616660156287253,
+      "results_fetched": 30,
+      "results_returned": 10,
+      "top_result_id": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top_result_path": "memory/2026-03-05.md"
+    },
+    {
+      "query": "embedding cache",
+      "method": "Interleaved",
+      "latency_ms": 0.13758300337940454,
+      "results_fetched": 20,
+      "results_returned": 10,
+      "top_result_id": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top_result_path": "memory/2026-03-05.md"
+    },
+    {
+      "query": "user authentication",
+      "method": "RRF",
+      "latency_ms": 0.15587499365210533,
+      "results_fetched": 30,
+      "results_returned": 10,
+      "top_result_id": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top_result_path": "memory/2026-03-05.md"
+    },
+    {
+      "query": "user authentication",
+      "method": "Interleaved",
+      "latency_ms": 0.12979196617379785,
+      "results_fetched": 20,
+      "results_returned": 10,
+      "top_result_id": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top_result_path": "memory/2026-03-05.md"
+    }
+  ],
+  "comparisons": [
+    {
+      "overlap_count": 10,
+      "overlap_pct": 100.0,
+      "avg_rank_diff": 0.0,
+      "rrf_top1": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "interleaved_top1": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top1_match": true
+    },
+    {
+      "overlap_count": 10,
+      "overlap_pct": 100.0,
+      "avg_rank_diff": 0.0,
+      "rrf_top1": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "interleaved_top1": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top1_match": true
+    },
+    {
+      "overlap_count": 10,
+      "overlap_pct": 100.0,
+      "avg_rank_diff": 0.0,
+      "rrf_top1": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "interleaved_top1": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top1_match": true
+    },
+    {
+      "overlap_count": 10,
+      "overlap_pct": 100.0,
+      "avg_rank_diff": 0.0,
+      "rrf_top1": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "interleaved_top1": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top1_match": true
+    },
+    {
+      "overlap_count": 10,
+      "overlap_pct": 100.0,
+      "avg_rank_diff": 0.0,
+      "rrf_top1": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "interleaved_top1": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top1_match": true
+    },
+    {
+      "overlap_count": 10,
+      "overlap_pct": 100.0,
+      "avg_rank_diff": 0.0,
+      "rrf_top1": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "interleaved_top1": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top1_match": true
+    },
+    {
+      "overlap_count": 10,
+      "overlap_pct": 100.0,
+      "avg_rank_diff": 0.0,
+      "rrf_top1": "e6201942f318e06a8897cb4c3e8a78612be108ae144e340ba664c524aa43c89b",
+      "interleaved_top1": "e6201942f318e06a8897cb4c3e8a78612be108ae144e340ba664c524aa43c89b",
+      "top1_match": true
+    },
+    {
+      "overlap_count": 10,
+      "overlap_pct": 100.0,
+      "avg_rank_diff": 0.0,
+      "rrf_top1": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "interleaved_top1": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top1_match": true
+    },
+    {
+      "overlap_count": 10,
+      "overlap_pct": 100.0,
+      "avg_rank_diff": 0.0,
+      "rrf_top1": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "interleaved_top1": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top1_match": true
+    },
+    {
+      "overlap_count": 10,
+      "overlap_pct": 100.0,
+      "avg_rank_diff": 0.0,
+      "rrf_top1": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "interleaved_top1": "7e06eab8f604c2ee3771af03b4f6c76543ed29c46e62573f977486b1f8fb4ae5",
+      "top1_match": true
+    }
+  ],
+  "summary": {
+    "rrf_avg_latency": 2.215379197150469,
+    "interleaved_avg_latency": 0.15929590445011854,
+    "speedup": 13.907320497647737,
+    "rrf_avg_fetched": 30.5,
+    "interleaved_avg_fetched": 20.5,
+    "fetch_reduction_pct": 32.78688524590164,
+    "avg_overlap_pct": 100.0,
+    "top1_match_rate": 1.0
+  }
+}
