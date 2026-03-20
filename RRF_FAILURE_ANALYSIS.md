@@ -45,7 +45,34 @@ Three distinct reasons why RRF returned zero relevant results:
 
 ---
 
-### Key Takeaway
+---
+
+## Why A + B + C Don't Add Up to 100%
+
+The categories **overlap** — a single query can fail for multiple reasons at once.
+For example, a query can have FTS5 return nothing (Category A) AND have relevant docs
+outside both top-100 (Category B) simultaneously.
+
+Here is the **mutually exclusive** breakdown of all 81 zero-hit queries:
+
+| Failure pattern | Queries | Share |
+|---|---|---|
+| A+B — FTS returned nothing AND docs outside both top-100 | 23 | 28% |
+| B only — FTS worked, but docs still outside both top-100 | 22 | 27% |
+| Mixed — multiple causes combined | 33 | 41% |
+| A only — FTS nothing, but vec found some docs | 1 | 1% |
+| C only — pure fusion failure | 1 | 1% |
+| Vec-only miss only | 1 | 1% |
+| **Total** | **81** | **100%** |
+
+**The dominant patterns are A+B (28%) and B only (27%), plus mixed cases (41%) that
+almost all include a Category B component.** In other words, the recall ceiling
+(100 candidates per index) is involved in virtually every failure — regardless of
+whether FTS5 also returned nothing.
+
+---
+
+## Key Takeaway
 
 Expanding top-k (10 → 20 or 50) would only recover **10% of missed docs** (113 docs).
 The other **90% (1,001 docs)** require a better first-stage retriever with higher recall —
