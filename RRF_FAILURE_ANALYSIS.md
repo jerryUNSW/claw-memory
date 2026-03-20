@@ -72,6 +72,39 @@ whether FTS5 also returned nothing.
 
 ---
 
+## Keyword vs Semantic: Which Fails More?
+
+### Query-level
+
+- FTS5 returned **zero results** for **171 / 323 queries (53%)** — keyword search produced nothing at all for more than half of queries
+- Vector search returned zero results for **0 / 323 queries (0%)** — it always retrieves *something*
+- FTS5 missed at least one relevant doc in top-100: **307 / 323 queries (95%)**
+- Vector missed at least one relevant doc in top-100: **302 / 323 queries (93%)**
+- Both missed at least one relevant doc: **301 / 323 queries (93%)**
+- Neither missed any (both fully covered relevant set): **only 15 / 323 queries (5%)**
+
+### Doc-level — Where was each missed relevant doc? (out of 12,334 total relevant)
+
+| Where was the missed relevant doc? | Docs | Share of all misses |
+|---|---|---|
+| Neither FTS nor vec top-100 — **both failed** | **9,572** | **83%** |
+| Vec found it, FTS did not — keyword failed | 1,456 | 13% |
+| Both found it but fusion buried it — fusion failed | 333 | 3% |
+| FTS found it, vec did not — semantic failed | 185 | 2% |
+| **Total missed** | **11,546** | |
+
+### Retriever recall (across all 12,334 relevant docs)
+
+- FTS5 failed to retrieve in top-100: **11,028 docs (89.4%)**
+- Vector failed to retrieve in top-100: **9,757 docs (79.1%)**
+- **Keyword is the weaker link by 1,271 docs**
+
+### Verdict
+
+Keyword search (FTS5) is weaker than vector search — it returned nothing at all for 53% of queries and missed more relevant docs overall. However, the dominant failure (**83% of all misses, 9,572 docs**) is that **both indexes failed simultaneously** — neither FTS5 nor vector search retrieved the relevant doc in their top-100. This means the `all-MiniLM-L6-v2` semantic model is also failing badly, not just keyword search. A retrieval-trained dense model (DPR, ColBERT v2) trained specifically for recall would dramatically reduce the "missed by both" count.
+
+---
+
 ## Key Takeaway
 
 Expanding top-k (10 → 20 or 50) would only recover **10% of missed docs** (113 docs).
