@@ -96,6 +96,44 @@ We analysed all 323 queries to understand where RRF fails. Key findings:
 
 ---
 
+## Key Competitors / Related Systems
+
+These are the most relevant prior systems working on agent memory retrieval. They are our direct competitors when writing a paper.
+
+| System | Venue | Retrieval Method | Embedding Model |
+|--------|-------|------------------|-----------------|
+| **HyMem** | Feb 2026 | Hierarchical memory tree + semantic search | Not specified (general LLM embeddings) |
+| **MemR3** | 2025 | Retrieve → Reflect → Respond pipeline | Sentence-BERT variants |
+| **MAGMA** | 2025 | Multi-granularity memory with graph links | Not specified |
+| **EpMAN** | 2025 | Episodic memory with attention-based retrieval | BERT-based |
+| **AriGraph** | 2024 | Knowledge graph + semantic retrieval | GPT-based embeddings |
+| **OpenClaw (current)** | — | RRF: BM25 (FTS5) + vector (sqlite-vec) | gemini / openai / local GGUF |
+
+**Key observation: none of the competitors use hybrid retrieval.** They all rely purely on vector/semantic search. This is the gap we are addressing — no existing agent memory system combines keyword and vector search, and none are designed for SQLite-native deployment.
+
+### Do competitors use the same embedding model?
+
+No — every system uses a different embedding model, and none disclose fair controlled comparisons:
+
+- HyMem, MAGMA, EpMAN: unspecified or general-purpose LLM embeddings
+- MemR3: Sentence-BERT variants (similar class to our `all-MiniLM-L6-v2`)
+- AriGraph: GPT-based embeddings (API-dependent)
+- OpenClaw: Gemini / OpenAI / local GGUF depending on environment
+
+This is a significant problem for reproducibility in the field. Different embedding models can shift Recall@K by 20–40 percentage points, making system comparisons unreliable.
+
+### Should we control the embedding model in our experiments?
+
+**Yes — fixing the embedding model is essential for a fair comparison.** Our experimental plan:
+
+1. **Fix one open-source embedding model across all systems** we compare (e.g., `all-MiniLM-L6-v2` or `bge-base-en-v1.5`) so that differences in results are attributable to the *retrieval architecture*, not the embedding model
+2. Report results with **multiple embedding models** (cheap general-purpose vs. retrieval-trained) to show our hybrid approach is robust to embedding quality
+3. Use the **same chunking strategy** across all systems (same chunk size, overlap)
+
+The claim we want to make is: *given the same embedding model, our hybrid BM25+vector approach retrieves the right memory chunk more reliably than pure vector search* — which is what all competitors do.
+
+---
+
 ## Why BEIR is the Wrong Benchmark for This Problem
 
 Our BEIR results reveal a key insight: the failures we observed are largely a consequence of using a **general-purpose embedding model** on a **domain-specialised IR dataset**. This is not what OpenClaw users experience.
