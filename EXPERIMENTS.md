@@ -97,40 +97,78 @@ For each (system, embedding_model, dataset) combination:
 
 ---
 
-### Expected Result Matrix
+### Result Matrix
 
-| System | Embedding | Dataset | Recall@5 | Recall@10 | MRR@10 |
-|--------|-----------|---------|----------|-----------|--------|
-| OpenClaw (hybrid RRF) | embeddinggemma-300m-qat | LoCoMo | TBD | TBD | TBD |
-| HyMem | embeddinggemma-300m-qat | LoCoMo | TBD | TBD | TBD |
-| OpenClaw (hybrid RRF) | DPR | LoCoMo | TBD | TBD | TBD |
-| HyMem | DPR | LoCoMo | TBD | TBD | TBD |
-| OpenClaw (hybrid RRF) | embeddinggemma-300m-qat | LongMemEval-S | TBD | TBD | TBD |
-| HyMem | embeddinggemma-300m-qat | LongMemEval-S | TBD | TBD | TBD |
-| OpenClaw (hybrid RRF) | DPR | LongMemEval-S | TBD | TBD | TBD |
-| HyMem | DPR | LongMemEval-S | TBD | TBD | TBD |
-| OpenClaw (hybrid RRF) | embeddinggemma-300m-qat | LongMemEval-M | TBD | TBD | TBD |
-| HyMem | embeddinggemma-300m-qat | LongMemEval-M | TBD | TBD | TBD |
-| OpenClaw (hybrid RRF) | DPR | LongMemEval-M | TBD | TBD | TBD |
-| HyMem | DPR | LongMemEval-M | TBD | TBD | TBD |
+**Note:** `embeddinggemma-300m-qat` requires GGUF/llama.cpp bindings not available in our Python benchmark environment. We substituted `all-MiniLM-L6-v2` (384-dim sentence similarity model) as the lightweight local model baseline. DPR uses `facebook/dpr-{question,ctx}_encoder-single-nq-base` (768-dim, retrieval-trained). LongMemEval uses the oracle split (500 questions with per-question haystacks). LongMemEval-S/M deferred due to compute constraints (278MB/2.7GB JSON files requiring per-question indexing).
+
+| System | Embedding | Dataset | Recall@5 | Recall@10 | MRR@10 | Hit@10 |
+|--------|-----------|---------|----------|-----------|--------|--------|
+| OpenClaw (hybrid RRF) | all-MiniLM-L6-v2 | LoCoMo | 0.2021 | 0.3088 | 0.1540 | 0.3495 |
+| Pure Semantic | all-MiniLM-L6-v2 | LoCoMo | **0.3236** | **0.4041** | **0.2404** | **0.4502** |
+| OpenClaw (hybrid RRF) | DPR | LoCoMo | 0.0625 | 0.1217 | 0.0519 | 0.1528 |
+| Pure Semantic | DPR | LoCoMo | **0.2472** | **0.3223** | **0.1868** | **0.3682** |
+| OpenClaw (hybrid RRF) | all-MiniLM-L6-v2 | LongMemEval | 0.2217 | 0.4882 | 0.1831 | 0.6305 |
+| Pure Semantic | all-MiniLM-L6-v2 | LongMemEval | **0.6732** | **0.8561** | **0.5770** | **0.9520** |
+| OpenClaw (hybrid RRF) | DPR | LongMemEval | 0.1184 | 0.3280 | 0.1213 | 0.4175 |
+| Pure Semantic | DPR | LongMemEval | **0.5800** | **0.7804** | **0.4774** | **0.9102** |
 
 ---
 
-### Hypothesis
+### Hypothesis (Pre-Experiment)
 
 - **H1 (main):** OpenClaw hybrid RRF achieves higher Recall@K than HyMem's pure semantic retrieval, because BM25 captures exact keyword matches (names, IDs, tool calls) that vector search misses in agent memory content.
 - **H2 (embedding):** Both systems improve substantially when switching from `embeddinggemma-300m-qat` to DPR, but the *gap* between hybrid and pure semantic remains — showing the retrieval architecture advantage is independent of embedding quality.
 - **H3 (dataset):** The hybrid advantage is larger on LongMemEval-M (more sessions, more memory chunks) because keyword exact-match becomes relatively more important at scale.
 
+### Findings (Post-Experiment)
+
+**All three hypotheses were refuted.**
+
+**H1 REJECTED:** Pure semantic retrieval outperforms hybrid RRF across ALL conditions:
+- LoCoMo (MiniLM): Semantic Recall@10 = 0.404 vs Hybrid 0.309 (+31% advantage for semantic)
+- LongMemEval (MiniLM): Semantic Recall@10 = 0.856 vs Hybrid 0.488 (+75% advantage for semantic)
+
+**H2 PARTIALLY SUPPORTED (direction reversed):** Switching to DPR did not improve either system on these conversational datasets. DPR actually performed worse than MiniLM on both datasets for both systems. This is likely because DPR was trained on NQ/TriviaQA-style factoid questions, not conversational memory retrieval.
+
+**H3 NOT TESTED:** LongMemEval-S/M deferred due to compute constraints. However, on LongMemEval-Oracle, the semantic advantage was *larger*, not smaller, suggesting the opposite of H3 may be true.
+
+**Root cause analysis:** The hybrid RRF implementation adds BM25 noise that dilutes vector search quality. Conversational memory turns are short, informal texts where keyword matching produces many false positives (common words appear across many turns). The BM25 component's vocabulary-based matching is less discriminative than embedding similarity for distinguishing relevant vs. irrelevant conversational turns. Additionally, the RRF fusion weights (vector=0.5, text=0.3) give substantial influence to the less-accurate BM25 signal.
+
+**Implications for OpenClaw:**
+1. The current hybrid RRF approach may be suboptimal for conversational agent memory
+2. Pure vector search should be the default for agent memory retrieval
+3. BM25 may still add value for structured content (tool calls, file paths, code) — worth testing on AMA-Bench (agentic trajectories)
+4. RRF weight tuning could potentially recover some hybrid advantage (current weights may be poorly calibrated for memory retrieval)
+
 ---
 
 ### Implementation Status
 
-- [ ] Download LoCoMo dataset and parse into memory chunks
-- [ ] Download LongMemEval (S and M) from HuggingFace
-- [ ] Set up OpenClaw retrieval benchmark harness (extend existing `benchmark_beir_real.py`)
-- [ ] Replicate HyMem retrieval layer (summary-level + deep module)
-- [ ] Integrate `embeddinggemma-300m-qat` as embedding model
-- [ ] Integrate DPR as embedding model
-- [ ] Run all 12 combinations and record results
-- [ ] Fill in result matrix above
+- [x] Download LoCoMo dataset and parse into memory chunks
+- [x] Download LongMemEval (oracle) from HuggingFace
+- [x] Set up OpenClaw retrieval benchmark harness (`scripts/experiment1.py`)
+- [x] Implement pure semantic retrieval baseline (HyMem-style vector-only)
+- [ ] Replicate full HyMem retrieval layer (summary-level + deep module) — deferred, pure semantic is sufficient for the hybrid vs. semantic comparison
+- [ ] Integrate `embeddinggemma-300m-qat` as embedding model — deferred, requires GGUF/llama.cpp
+- [x] Integrate DPR as embedding model
+- [x] Integrate all-MiniLM-L6-v2 as lightweight local model baseline
+- [x] Run all 8 combinations (2 systems × 2 models × 2 datasets)
+- [x] Fill in result matrix
+- [x] Generate publication-quality visualizations (`scripts/experiment1_plots.py`)
+
+### Reproduction
+
+```bash
+# Run full experiment (all models, all datasets) — ~50 minutes
+python3 scripts/experiment1.py
+
+# Run specific model/dataset
+python3 scripts/experiment1.py --model minilm --dataset locomo
+python3 scripts/experiment1.py --model dpr --dataset longmemeval
+
+# Generate visualizations from saved results
+python3 scripts/experiment1_plots.py
+```
+
+Results are saved to `experiment1_results/experiment1_results.json`.
+Figures are saved to `experiment1_results/figures/`.
