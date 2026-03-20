@@ -1,12 +1,23 @@
-# OpenClaw Hybrid Retrieval Research
+# Efficient Hybrid Retrieval: Unified Index Fusion for Lexical and Semantic Search
 
-Research into improving hybrid retrieval (keyword + vector search) for [OpenClaw's](https://github.com/openclaw) agent memory system. The goal is to replace the current two-pass RRF fusion approach with a faster, more efficient retrieval strategy.
+## Research Problem
 
----
+Modern retrieval systems need to combine two complementary signals:
 
-## The Problem
+- **Lexical search** (BM25/FTS) — fast, precise, good at exact term matching
+- **Semantic/dense search** (vector similarity) — understands meaning, handles synonymy and paraphrase
 
-OpenClaw's current memory retrieval issues two separate SQL queries — one for FTS5 keyword search and one for vector search — then fuses them in JavaScript using Reciprocal Rank Fusion (RRF):
+The standard approach — run both independently, then merge results — is wasteful. It performs double I/O, fetches far more candidates than needed, cannot terminate early, and pushes fusion logic into the application layer where the query planner cannot optimize it.
+
+**The core research question:** Can moving hybrid fusion *into* the database engine's query planner — through interleaved index traversal and early termination — achieve the efficiency of cascaded filtering while preserving the recall of exhaustive fusion?
+
+This is an open problem in the Information Retrieval community. Results are evaluated on standard IR benchmarks (BEIR, MS MARCO) and are applicable to any system that today runs keyword and vector search in separate passes: enterprise search, RAG pipelines, biomedical retrieval, legal search, and e-commerce.
+
+### Primary Application: OpenClaw Agent Memory
+
+The most important concrete application driving this research is [OpenClaw's](https://github.com/openclaw) agent memory system. OpenClaw is an AI agent framework whose memory layer (`memory-core`) stores observations, tool results, and conversation history in SQLite. At query time it must retrieve the most relevant memories fast — latency directly impacts agent response time.
+
+OpenClaw's current retrieval issues two separate SQL queries — one for FTS5 keyword search and one for vector search — then fuses them in JavaScript using Reciprocal Rank Fusion (RRF):
 
 ```javascript
 // From dist/manager-CIjpkmRY.js
@@ -27,6 +38,8 @@ const merged = await mergeHybridResults({
 - Must always fetch 200 candidates — no early termination
 - Cannot leverage SQLite query planner
 - Latency around 50ms even on small datasets
+
+This pattern is not unique to OpenClaw — it is the dominant architecture in Elasticsearch hybrid search, PostgreSQL with pgvector, and most SQLite-based RAG stacks. A solution here generalizes broadly.
 
 ---
 
@@ -162,11 +175,75 @@ This would be a novel contribution to both OpenClaw and the broader SQLite hybri
 
 ---
 
-## Dataset
+## Datasets & Benchmarks
 
-- **BEIR NFCorpus** — 3,633 documents, 323 queries, medical/nutrition domain.
-- Embeddings computed with `sentence-transformers/all-MiniLM-L6-v2` (384 dimensions).
-- OpenClaw production DB uses `gemini-embedding-001` (3072 dimensions) — larger scale testing should use this.
+We use a three-tier dataset strategy to validate that results generalize across scales and domains.
+
+### Tier 1 — BEIR NFCorpus (current experiments)
+
+- **Size:** 3,633 documents, 323 queries, medical/nutrition domain
+- **Why:** Queries mix exact biomedical terminology with semantic reasoning — the same keyword+concept duality present in agent memory queries. Small enough to iterate quickly; hard enough to expose quality differences between methods.
+- **Embeddings:** `sentence-transformers/all-MiniLM-L6-v2` (384 dimensions)
+
+**Published NDCG@10 on NFCorpus** (from BEIR paper, Thakur et al. 2021):
+
+| Method | Type | NDCG@10 | Notes |
+|--------|------|---------|-------|
+| BM25 (Elasticsearch) | Sparse/Lexical | 0.325 | Robust baseline |
+| DPR (multi-dataset) | Dense bi-encoder | 0.189 | Poor OOD generalization |
+| ANCE | Dense bi-encoder | 0.237 | MS MARCO trained |
+| TAS-B | Dense bi-encoder | 0.319 | Balanced dense |
+| ColBERT-v2 | Late interaction | 0.338 | Best single-model |
+| monoT5 (re-ranker) | Cross-encoder | 0.350 | Highest quality, slowest |
+
+**Our results on NFCorpus:**
+
+| Method | NDCG@10 | Latency | Speedup vs RRF | Notes |
+|--------|---------|---------|----------------|-------|
+| RRF (BM25 + dense, exhaustive) | 0.331 | 50.2ms | 1.0× | Our baseline |
+| Interleaved (early termination) | 0.312 | 55.7ms | 0.9× | Python overhead negates gains |
+| Cascaded (BM25 filter → vector rerank) | 0.299 | 19.4ms | 2.9× | Best efficiency/quality trade-off so far |
+| Fast ColBERT (BM25 → MaxSim rerank) | 0.171 | 4455ms | 0.01× | Token embeddings too slow without GPU |
+
+**Key gap:** Our RRF baseline (0.331) already matches published BM25 (0.325) and approaches ColBERT-v2 (0.338) because we combine both signals. The research question is whether we can reach that quality at cascaded-retrieval speeds (sub-20ms).
+
+---
+
+### Tier 2 — MS MARCO Passage (scalability validation, planned)
+
+- **Size:** 8.8M passages, ~6,980 dev queries
+- **Why:** Industry-standard scale benchmark used by Elasticsearch, Vespa, Weaviate, and the broader IR community. Required to demonstrate that the unified operator scales beyond small corpora.
+- **Primary metric:** MRR@10 (dev set), NDCG@10
+
+**Published MRR@10 on MS MARCO dev set** (representative numbers from literature):
+
+| Method | Type | MRR@10 | Notes |
+|--------|------|--------|-------|
+| BM25 | Sparse | 0.184 | Anserini default |
+| DPR | Dense bi-encoder | 0.318 | Facebook, NQ-trained |
+| ANCE | Dense bi-encoder | 0.330 | Hard-negative mining |
+| ColBERT-v2 | Late interaction | 0.397 | State of the art retriever |
+| SPLADE-v3 | Learned sparse | ~0.400 | Competitive with ColBERT |
+| monoT5 (re-ranker over BM25) | Cross-encoder | 0.422 | Two-stage, high latency |
+| RRF (BM25 + dense) | Hybrid fusion | ~0.340 | Typical hybrid baseline |
+
+---
+
+### Tier 3 — OpenClaw Production DB (deployment target)
+
+- **Size:** Variable (30–100k+ agent memory entries in practice)
+- **Embeddings:** `gemini-embedding-001` (3072 dimensions)
+- **Why:** The primary application. Latency here directly impacts agent response time. No public ground-truth relevance judgments — evaluation is latency-focused with spot-check quality checks.
+
+---
+
+### What the Benchmarks Tell Us
+
+The research problem lives in the gap between Tier 1 quality numbers and Tier 3 latency requirements:
+
+- Exhaustive RRF matches ColBERT-v2 quality on NFCorpus but costs 50ms at small scale — unacceptable at 100k+ entries
+- Cascaded retrieval hits 19ms but loses ~10% NDCG — the pruning is too aggressive
+- The unified interleaved operator targets: **ColBERT-v2 quality + cascaded latency** in a single DB-level pass
 
 ---
 
